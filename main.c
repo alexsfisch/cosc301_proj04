@@ -49,6 +49,8 @@ void runserver(int numthreads, unsigned short serverport) {
 	int i = 0;
 	int rc;
 	pthread_t p;
+	pthread_t threadArray[numthreads];
+
     //////////////////////////////////////////////////
 
     // create your pool of threads here
@@ -59,8 +61,9 @@ void runserver(int numthreads, unsigned short serverport) {
    	//made a struct....nvm didn't do this either
 	//before that, create/init condition variable and mutex
 	//for loop to start some number of worker threads
-	for (;i<=10;i++) {
-		rc = pthread_create(&p, NULL, worker, NULL);
+	
+	for (;i<numthreads;i++) {
+		rc = pthread_create(&threadArray[i], NULL, worker, NULL);
 	}
 	//separate funtions for threads to start up in, above runserver.
 	//particular signature...
@@ -137,10 +140,12 @@ void worker(){
 		printf("%s\n","worker thread activated");
 		printf("%i\n",work_mutex);
 	struct work_queue_item *temp = NULL;
+
 	pthread_mutex_lock(&work_mutex); //SOMETHING IS WRONG HERE
 	//remove item
 	printf("%s\n","Removed Item");
 	temp = removeItem();
+	printf("%i\n",temp->sock);
 	queue_count -= 1;
 	pthread_mutex_unlock(&work_mutex);	
 	//respond to request on temp
