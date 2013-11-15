@@ -17,10 +17,19 @@
 #include <poll.h>
 #include <errno.h>
 
+struct work_queue_item {
+	int sock;
+	int clientIP;
+	int clintPort;
+	char* timestamp;
+	char* HTTPRequest;
+	struct work_queue_item *next;
+};
+
 int prepare_server_socket(unsigned short);
 int senddata(int, const char *, int);
 int getrequest(int, char *, int);
-
+void addToLinkedList(int);
 #define HTTP_404 "HTTP/1.0 404 Not found\r\n\r\n"
 #define HTTP_200 "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\nContent-length: %d\r\n\r\n"
 

@@ -9,17 +9,45 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
-
+#include <pthread.h>
 #include "network.h"
 
 
 // global variable; can't be avoided because
 // of asynchronous signal interaction
+struct work_queue_item *head = NULL;
+struct work_queue_item *tail = NULL;
+int queue_count = 0;
+pthread_mutex_t work_mutex; //need to initalize
+pthread_cond_t work_cond; //need to initialize
+
+//pthread_cond_init(&work_cond, NULL;
+
 int still_running = TRUE;
 void signal_handler(int sig) {
     still_running = FALSE;
 }
 
+void worker(){
+	while (queue_count == 0) {
+		pthread_cond_wait(cond_mutex);
+	}
+	struct work_queue_item *temp = NULL;
+	pthread_mutex_lock(&work_mutex);
+	//remove item
+	temp = removeItem();
+	queue_count -= 1;
+	pthread_mutex_unlock(&work_mutex);	
+	//respond to request
+	
+}
+
+work_queue_item remove () {
+	struct work_queue_item *temp = head;
+	head = head->next;
+	return temp;
+
+}
 
 void usage(const char *progname) {
     fprintf(stderr, "usage: %s [-p port] [-t numthreads]\n", progname);
@@ -29,6 +57,7 @@ void usage(const char *progname) {
 }
 
 void runserver(int numthreads, unsigned short serverport) {
+	int lock;
     //////////////////////////////////////////////////
 
     // create your pool of threads here
@@ -76,8 +105,19 @@ void runserver(int numthreads, unsigned short serverport) {
             * when you're done.
             */
            ////////////////////////////////////////////////////////
+		
 
 
+		pthread_mutex_lock(&work_mutex); //lock
+	
+		addToLinkedList(3); 
+		queue_count +=1;
+
+		//activate worker on it
+		pthread_cond_signal(&work_cond);
+		printf("%s\n","test");
+		pthread_mutex_unlock(&work_mutex);
+		
         }
     }
     fprintf(stderr, "Server shutting down.\n");
@@ -85,8 +125,23 @@ void runserver(int numthreads, unsigned short serverport) {
     close(main_socket);
 }
 
+void addToLinkedList(int sock) {
+
+	struct work_queue_item *new =  malloc(sizeof(struct work_queue_item));
+	new->sock = sock;
+	if (tail == NULL) {
+		tail = new;
+		head = new;
+	}
+	else {
+		tail->next = new;
+	}
+	new->next = NULL;
+}
 
 int main(int argc, char **argv) {
+	pthread_mutex_init(&work_mutex, NULL); //correct place???
+	pthread_mutex_init(&work_mutex, NULL); //correct place?
     unsigned short port = 3000;
     int num_threads = 1;
 
