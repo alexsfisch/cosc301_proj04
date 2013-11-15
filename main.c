@@ -22,7 +22,6 @@ int queue_count = 0;
 pthread_mutex_t work_mutex; //need to initalize
 pthread_cond_t work_cond; //need to initialize
 
-
 int still_running = TRUE;
 void signal_handler(int sig) {
     still_running = FALSE;
@@ -50,7 +49,6 @@ void runserver(int numthreads, unsigned short serverport) {
 	int rc;
 	pthread_t p;
 	pthread_t threadArray[numthreads];
-
     //////////////////////////////////////////////////
 
     // create your pool of threads here
@@ -80,6 +78,7 @@ void runserver(int numthreads, unsigned short serverport) {
 
     fprintf(stderr, "Server listening on port %d.  Going into request loop.\n", serverport);
     while (still_running) {
+		printf("%s\n","HERE");
         struct pollfd pfd = {main_socket, POLLIN};
         int prv = poll(&pfd, 1, 10000);
 
@@ -96,7 +95,7 @@ void runserver(int numthreads, unsigned short serverport) {
 
         int new_sock = accept(main_socket, (struct sockaddr *)&client_address, &addr_len);
         if (new_sock > 0) {
-            
+            printf("%s\n","got a new request");
             time_t now = time(NULL);
             fprintf(stderr, "Got connection from %s:%d at %s\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port), ctime(&now));
 
@@ -114,43 +113,51 @@ void runserver(int numthreads, unsigned short serverport) {
 
 			pthread_mutex_lock(&work_mutex); //lock
 	
-			addToLinkedListItem(3);
+			addToLinkedListItem(new_sock);
 			printf("%i\n",head); 
 			queue_count +=1;
 			printf("%s","Queue Count:   ");
 			printf("%i\n", queue_count);
 
-		
+		    pthread_mutex_unlock(&work_mutex); //unlock (not sure if int he right place)
 			pthread_cond_signal(&work_cond); 			//activate worker on it
-	pthread_mutex_unlock(&work_mutex); //unlock (not sure if int he right place)
 
 			printf("%s\n","test");
         }
     }
     fprintf(stderr, "Server shutting down.\n");
     close(main_socket);
+	//wait for all threads to die
 }
 
 
 void worker(){
 	printf("%s\n","Created Thread");
-	while (queue_count == 0) {
-		pthread_cond_wait(&work_cond, &work_mutex); //not sure about second parameter
-	}
+	while(still_running) {
+		pthread_mutex_lock(&work_mutex);	
+		while (queue_count == 0) {
+			pthread_cond_wait(&work_cond, &work_mutex); //not sure about second parameter
+		}
+		pthread_mutex_unlock(&work_mutex);
+
 		printf("%s\n","worker thread activated");
 		printf("%i\n",work_mutex);
-	struct work_queue_item *temp = NULL;
 
-	pthread_mutex_lock(&work_mutex); //SOMETHING IS WRONG HERE
-	//remove item
-	printf("%s\n","Removed Item");
-	temp = removeItem();
-	printf("%i\n",temp->sock);
-	queue_count -= 1;
-	pthread_mutex_unlock(&work_mutex);	
-	//respond to request on temp
+		struct work_queue_item *temp = NULL;
 	
-	free(temp); //free temp
+		pthread_mutex_lock(&work_mutex); //SOMETHING IS WRONG HERE
+		//remove item
+		temp = removeItem();
+		printf("%i\n",temp->sock);
+		queue_count -= 1;
+		pthread_mutex_unlock(&work_mutex);	
+		close(temp->sock);
+		printf("%s\n","Removed Item");
+		//respond to request on temp
+	
+		free(temp); //free temp
+	}
+	//some code to kill threads
 	
 }
 
