@@ -64,6 +64,12 @@ void runserver(int numthreads, unsigned short serverport) {
 
     //////////////////////////////////////////////////
     
+	//array of pthread t's
+	//before that, create/init condition variable and mutex
+	//for loop to start some number of worker threads
+	//separate funtions for threads to start up in, above runserver.
+	//particular signature...
+	
     
     int main_socket = prepare_server_socket(serverport);
     if (main_socket < 0) {
