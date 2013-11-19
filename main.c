@@ -29,11 +29,35 @@ void signal_handler(int sig) {
 
 
 struct work_queue_item * removeItem() {
-	struct work_queue_item *temp = malloc(sizeof(struct work_queue_item));
-	temp = head;
-	head = head->next;
+	struct work_queue_item *temp = head; 
+
+	if (head->next == NULL) { //1 item
+		head = NULL;
+		tail = NULL;
+	}
+	else if (head != NULL) { //list of any length
+		head = head->next;	
+	}
+
 	return temp;
 
+}
+
+void addToLinkedListItem(int sock) {
+
+	struct work_queue_item *new =  malloc(sizeof(struct work_queue_item));
+	new->sock = sock;
+	new->next= NULL;
+	if(tail == NULL)
+		printf("%s\n","Tail is NULL!");
+
+	if (tail == NULL) {
+		head = new;
+	}
+	else {
+		tail->next = new;
+	}
+	tail = new;
 }
 
 void usage(const char *progname) {
@@ -118,10 +142,10 @@ void runserver(int numthreads, unsigned short serverport) {
 			queue_count +=1;
 			printf("%s","Queue Count:   ");
 			printf("%i\n", queue_count);
-
-		    pthread_mutex_unlock(&work_mutex); //unlock (not sure if int he right place)
 			pthread_cond_signal(&work_cond); 			//activate worker on it
 
+		   	 pthread_mutex_unlock(&work_mutex); //unlock (not sure if int he right place)
+			
 			printf("%s\n","test");
         }
     }
@@ -138,16 +162,22 @@ void worker(){
 		while (queue_count == 0) {
 			pthread_cond_wait(&work_cond, &work_mutex); //not sure about second parameter
 		}
-		pthread_mutex_unlock(&work_mutex);
+
 
 		printf("%s\n","worker thread activated");
 		printf("%i\n",work_mutex);
 
 		struct work_queue_item *temp = NULL;
 	
-		pthread_mutex_lock(&work_mutex); //SOMETHING IS WRONG HERE
+		
 		//remove item
 		temp = removeItem();
+		char buffer[1024];
+		//getrequest(temp->sock, buffer, 1024);
+		memset(buffer, 0, 1024);
+		recv(temp->sock, buffer, 1024, 0);
+		printf("got <%s> from remote\n", buffer);
+		send(temp->sock, buffer, strlen(buffer), 0);
 		printf("%i\n",temp->sock);
 		queue_count -= 1;
 		pthread_mutex_unlock(&work_mutex);	
@@ -161,19 +191,7 @@ void worker(){
 	
 }
 
-void addToLinkedListItem(int sock) {
 
-	struct work_queue_item *new =  malloc(sizeof(struct work_queue_item));
-	new->sock = sock;
-	if (tail == NULL) {
-		tail = new;
-		head = new;
-	}
-	else {
-		tail->next = new;
-	}
-	new->next = NULL;
-}
 
 /*void addToLinkedListThread(){
 	struct thread *new = malloc(sizeof(struct thread));
