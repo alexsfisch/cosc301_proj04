@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include "network.h"
+#include <stdio.h>
+#include <string.h>
 
 
 // global variable; can't be avoided because
@@ -36,21 +38,20 @@ struct work_queue_item * removeItem() {
 		tail = NULL;
 	}
 	else if (head != NULL) { //list of any length
-		head = head->next;	
 	}
 
 	return temp;
 
 }
 
-void addToLinkedListItem(int sock) {
+void addToLinkedListItem(int sock, struct in_addr clientID, in_port_t port, time_t time) {
 
 	struct work_queue_item *new =  malloc(sizeof(struct work_queue_item));
 	new->sock = sock;
+	new->clientIP = clientID;
+	new->timestamp = time;
+	new->clientPort = port;
 	new->next= NULL;
-	if(tail == NULL)
-		printf("%s\n","Tail is NULL!");
-
 	if (tail == NULL) {
 		head = new;
 	}
@@ -102,7 +103,7 @@ void runserver(int numthreads, unsigned short serverport) {
 
     fprintf(stderr, "Server listening on port %d.  Going into request loop.\n", serverport);
     while (still_running) {
-		printf("%s\n","HERE");
+		printf("%s\n","top of while loop");
         struct pollfd pfd = {main_socket, POLLIN};
         int prv = poll(&pfd, 1, 10000);
 
@@ -136,17 +137,16 @@ void runserver(int numthreads, unsigned short serverport) {
 
 
 			pthread_mutex_lock(&work_mutex); //lock
-	
-			addToLinkedListItem(new_sock);
-			printf("%i\n",head); 
+			printf("%s","time:    ");
+			printf("%s\n",ctime(&now));
+			addToLinkedListItem(new_sock, client_address.sin_addr, client_address.sin_port, &now);
 			queue_count +=1;
 			printf("%s","Queue Count:   ");
 			printf("%i\n", queue_count);
-			pthread_cond_signal(&work_cond); 			//activate worker on it
+			pthread_cond_signal(&work_cond); //activate worker on it
 
-		   	 pthread_mutex_unlock(&work_mutex); //unlock (not sure if int he right place)
+		   	pthread_mutex_unlock(&work_mutex); //unlock
 			
-			printf("%s\n","test");
         }
     }
     fprintf(stderr, "Server shutting down.\n");
@@ -156,6 +156,9 @@ void runserver(int numthreads, unsigned short serverport) {
 
 
 void worker(){
+	int fileExists = 1;
+	char cwd[1024];
+	getcwd(cwd,1024); //get current directory
 	printf("%s\n","Created Thread");
 	while(still_running) {
 		pthread_mutex_lock(&work_mutex);	
@@ -165,24 +168,47 @@ void worker(){
 
 
 		printf("%s\n","worker thread activated");
-		printf("%i\n",work_mutex);
 
 		struct work_queue_item *temp = NULL;
 	
-		
-		//remove item
-		temp = removeItem();
+
+		temp = removeItem(); //remove item
+		queue_count -= 1; //update queue
+		pthread_mutex_unlock(&work_mutex);	 //unlock
+
+		//executing request
 		char buffer[1024];
-		//getrequest(temp->sock, buffer, 1024);
+		getrequest(temp->sock, buffer, 1024);
 		memset(buffer, 0, 1024);
 		recv(temp->sock, buffer, 1024, 0);
+		if (buffer[1]=='/') { //if first character is a /, ignore it
+			//buffer++;
+		}
+		printf("%s","CWD:    ");
+		printf("%s\n",cwd);
+
+		fileExists = stat(cwd, &buffer);
+		if (fileExists) {
+			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
+		}
+		else {
+			printf("%s\n", "file does not exist");
+			senddata(temp->sock, HTTP_404, strlen(HTTP_404));
+
+		}
 		printf("got <%s> from remote\n", buffer);
-		send(temp->sock, buffer, strlen(buffer), 0);
+		
+		printf("%s","sock:   ");
 		printf("%i\n",temp->sock);
-		queue_count -= 1;
-		pthread_mutex_unlock(&work_mutex);	
+		printf("%s","clientIP:   ");
+		printf("%s\n", inet_ntoa(temp->clientIP));
+		printf("%s","clientPort:   ");
+		printf("%d\n", ntohs(temp->clientPort));
+		printf("%s","Time stamp:   ");
+		printf("%s\n",ctime(temp->timestamp));
 		close(temp->sock);
-		printf("%s\n","Removed Item");
+		printf("%s\n","Removed Item. Sock Closed.");
+		printf("%s\n","------------------------------------------------\n");
 		//respond to request on temp
 	
 		free(temp); //free temp
@@ -193,16 +219,9 @@ void worker(){
 
 
 
-/*void addToLinkedListThread(){
-	struct thread *new = malloc(sizeof(struct thread));
-	if (ThreadHead == NULL) {
-		head = new;
-	}
-	new->next = NULL;
-}*/
 int main(int argc, char **argv) {
-	pthread_mutex_init(&work_mutex, NULL); //correct place???
-	pthread_cond_init(&work_cond, NULL); //correct place?
+	pthread_mutex_init(&work_mutex, NULL); 
+	pthread_cond_init(&work_cond, NULL); 
     unsigned short port = 3000;
     int num_threads = 1;
 

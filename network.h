@@ -19,9 +19,9 @@
 
 struct work_queue_item {
 	int sock;
-	int clientIP;
-	int clintPort;
-	char* timestamp;
+	struct in_addr clientIP;
+	in_port_t clientPort;
+	time_t timestamp;
 	char* HTTPRequest;
 	struct work_queue_item *next;
 };
@@ -30,7 +30,7 @@ struct work_queue_item {
 int prepare_server_socket(unsigned short);
 int senddata(int, const char *, int);
 int getrequest(int, char *, int);
-void addToLinkedListItem(int);
+void addToLinkedListItem(int, struct in_addr, in_port_t in_addr, time_t);
 void worker();
 struct work_queue_item * removeItem();
 #define HTTP_404 "HTTP/1.0 404 Not found\r\n\r\n"
