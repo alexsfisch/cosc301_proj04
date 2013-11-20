@@ -15,6 +15,9 @@
 #include <string.h>
 
 
+//		strcat(fileFullName,directory);
+		//strcat(fileFullName,filename);
+
 // global variable; can't be avoided because
 // of asynchronous signal interaction
 struct work_queue_item *head = NULL;
@@ -73,7 +76,6 @@ void runserver(int numthreads, unsigned short serverport) {
 	int lock;
 	int i = 0;
 	int rc;
-	pthread_t p;
 	pthread_t threadArray[numthreads];
     //////////////////////////////////////////////////
 
@@ -81,16 +83,11 @@ void runserver(int numthreads, unsigned short serverport) {
 
     //////////////////////////////////////////////////
 
-	//array of pthread t's
-   	//made a struct....nvm didn't do this either
-	//before that, create/init condition variable and mutex
-	//for loop to start some number of worker threads
+
 	
 	for (;i<numthreads;i++) {
 		rc = pthread_create(&threadArray[i], NULL, worker, NULL);
 	}
-	//separate funtions for threads to start up in, above runserver.
-	//particular signature...
 	
     
     int main_socket = prepare_server_socket(serverport);
@@ -148,17 +145,16 @@ void runserver(int numthreads, unsigned short serverport) {
     }
     fprintf(stderr, "Server shutting down.\n");
     close(main_socket);
-	//wait for all threads to die
 }
 
 
 void worker(){
 	int fileExists = 1;
-	int i = 0;
 	char cwd[1024];
 	getcwd(cwd,1024); //get current directory
 	struct stat sb;
-	char* fullFileName[1024];
+	char header[1024];
+	char fullFileName[1024];
 	FILE *file;
 	printf("%s\n","Created Thread");
 	
@@ -181,82 +177,63 @@ void worker(){
 
 		//executing request
 		char buffer[1024];
+
 		getrequest(temp->sock, buffer, 1024);
-		//printf("%s","buffer before: ");
-		//printf("%s\n",buffer);
+		printf("%s","buffer before: ");
+		printf("%s\n",buffer);
 
-		//recv(temp->sock, buffer, 1024, 0);
-
-		/*if (buffer[0]=='/') { //if first character is a /, ignore it
-			i = 0;
-			if(buffer[i+1]=='\0'){
-				buffer[0]=='\0';
-			}
-			else{
-				while (buffer[i+1]!='\0'){
-					buffer[i]=buffer[i+1];
-					i++;
-				}
-				buffer[i]='\0';
-			}
-			//buffer = stripfirst(buffer);   ///THIS IS NOT WORKING!!!!
-		}*/
-		
-		//printf("%s","buffer after: ");
-		//printf("%s\n",buffer);
 		strcat(fullFileName,cwd);
 		strcat(fullFileName,buffer);
+
+		fileExists = stat(fullFileName, &sb);
 		printf("%s","File:   ");
 		printf("%s\n", fullFileName);
-		fileExists = stat(fullFileName, &sb);
 		temp->totalRequestSize = sb.st_size;
-		if (fileExists>=0) {
+		if (fileExists==0) {
 			printf("%s\n","FILE FOUND!!!!!!");
-			//send data 200
-			//call stat on full file name
-			//will fill struct stat with metadata including the response size
-			//then use sprintf,populate %d with file, use to construct buffer
-			//use senddata to actually send it
-			//can't use fprintf with 
-			//sprintf(buffer, 
-			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
+
+			memset(header, 0, 1024); //reset char[]
+
+			//send header
+			sprintf(header, HTTP_200, temp->totalRequestSize);
+			senddata(temp->sock,header, strlen(header));
+
+			//open file
+			file = fopen(fullFileName,"r");
+			int numberBytes = 0;
+			//read through file contents
+			while ((numberBytes = fread(header,1, 1024,file)==1024)) {
+				//printf("%s\n",header);
+				senddata(temp->sock,header, numberBytes);
+				memset(header, 0, 1024); //reset char[]
+			}
+			//printf("%s\n",header);
+			senddata(temp->sock,header, numberBytes);
+			fclose(file);
+
+
+
 			file = fopen("weblog.txt","a+"); //append file
-			fprintf(file, "%s:%d %s GET %s %i %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200, temp->totalRequestSize); //NEED TO ADD RESPONSE SIZE
+			fprintf(file, "%s:%d %s GET %s %i %zu\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200, temp->totalRequestSize); 
 			fclose(file);
 		}
 		else {
 			printf("%s\n", "file does not exist");
 			senddata(temp->sock, HTTP_404, strlen(HTTP_404));
 			file = fopen("weblog.txt","a+"); //append file
-			fprintf(file, "%s:%d %s GET %s %i %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 404, temp->totalRequestSize); //NEED TO ADD RESPONSE SIZE
+			fprintf(file, "%s:%d %s GET %s %i %zu\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 404, temp->totalRequestSize);
 			fclose(file);
 
 		}
 	
-		//printf("got <%s> from remote\n", buffer);
-		
 
-		//write to file
-
-
-		/*printf("%s","sock:   ");
-		printf("%i\n",temp->sock);
-		printf("%s","clientIP:   ");
-		printf("%s\n", inet_ntoa(temp->clientIP));
-		printf("%s","clientPort:   ");
-		printf("%d\n", ntohs(temp->clientPort));
-		printf("%s","Time stamp:   ");
-		printf("%s\n",ctime(temp->timestamp));*/
 		close(temp->sock);
 		printf("%s\n","Removed Item. Sock Closed.");
 		printf("%s\n","------------------------------------------------\n");
-		//respond to request on temp
 	
 		free(temp); //free temp
-		//free(fullFileName); //not sure if we need
 
 	}
-	//some code to kill threads
 	
 }
 
