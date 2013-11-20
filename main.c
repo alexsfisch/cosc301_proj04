@@ -200,7 +200,11 @@ void worker(){
 		if (fileExists>=0) {
 			printf("%s\n","FILE FOUND!!!!!!");
 			//send data 200
-			//senddata(temp->sock, HTTP_200, strlen(HTTP_200));
+			//call stat on full file name
+			//will fill struct stat with metadata including the response size
+			//then use sprintf,populate %d with file, use to construct buffer
+			//use senddata to actually send it
+			//can't use fprintf with 
 			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
 			file = fopen("weblog.txt","a+"); //append file
 			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200); //NEED TO ADD RESPONSE SIZE
