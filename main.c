@@ -154,6 +154,7 @@ void runserver(int numthreads, unsigned short serverport) {
 
 void worker(){
 	int fileExists = 1;
+	int i = 0;
 	char cwd[1024];
 	getcwd(cwd,1024); //get current directory
 	struct stat sb;
@@ -181,22 +182,34 @@ void worker(){
 		//executing request
 		char buffer[1024];
 		getrequest(temp->sock, buffer, 1024);
-		printf("%s","buffer before: ");
-		printf("%s\n",buffer);
+		//printf("%s","buffer before: ");
+		//printf("%s\n",buffer);
 
 		//recv(temp->sock, buffer, 1024, 0);
-		//if (buffer[0]=='/') { //if first character is a /, ignore it
-		//	stripfirst(buffer);   ///THIS IS NOT WORKING!!!!
-		//}
+
+		/*if (buffer[0]=='/') { //if first character is a /, ignore it
+			i = 0;
+			if(buffer[i+1]=='\0'){
+				buffer[0]=='\0';
+			}
+			else{
+				while (buffer[i+1]!='\0'){
+					buffer[i]=buffer[i+1];
+					i++;
+				}
+				buffer[i]='\0';
+			}
+			//buffer = stripfirst(buffer);   ///THIS IS NOT WORKING!!!!
+		}*/
 		
-		printf("%s","buffer after: ");
-		printf("%s\n",buffer);
+		//printf("%s","buffer after: ");
+		//printf("%s\n",buffer);
 		strcat(fullFileName,cwd);
 		strcat(fullFileName,buffer);
 		printf("%s","File:   ");
 		printf("%s\n", fullFileName);
 		fileExists = stat(fullFileName, &sb);
-		
+		temp->totalRequestSize = sb.st_size;
 		if (fileExists>=0) {
 			printf("%s\n","FILE FOUND!!!!!!");
 			//send data 200
@@ -205,16 +218,17 @@ void worker(){
 			//then use sprintf,populate %d with file, use to construct buffer
 			//use senddata to actually send it
 			//can't use fprintf with 
+			//sprintf(buffer, 
 			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
 			file = fopen("weblog.txt","a+"); //append file
-			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200); //NEED TO ADD RESPONSE SIZE
+			fprintf(file, "%s:%d %s GET %s %i %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200, temp->totalRequestSize); //NEED TO ADD RESPONSE SIZE
 			fclose(file);
 		}
 		else {
 			printf("%s\n", "file does not exist");
 			senddata(temp->sock, HTTP_404, strlen(HTTP_404));
 			file = fopen("weblog.txt","a+"); //append file
-			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 404); //NEED TO ADD RESPONSE SIZE
+			fprintf(file, "%s:%d %s GET %s %i %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 404, temp->totalRequestSize); //NEED TO ADD RESPONSE SIZE
 			fclose(file);
 
 		}
@@ -244,20 +258,6 @@ void worker(){
 	}
 	//some code to kill threads
 	
-}
-
-void stripfirst(char filename[]){
-	int i = 0;
-	if(filename[i+1]=='\0'){
-		filename[0]=='\0';
-	}
-	else{
-		while (filename[i+1]!='\0'){
-			filename[i]=filename[i+1];
-			i++;
-		}
-		filename[i]='\0';
-	}
 }
 
 int main(int argc, char **argv) {

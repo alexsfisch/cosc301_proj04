@@ -23,6 +23,7 @@ struct work_queue_item {
 	in_port_t clientPort;
 	time_t timestamp;
 	char* HTTPRequest;
+	off_t totalRequestSize;
 	struct work_queue_item *next;
 };
 
@@ -33,6 +34,7 @@ int getrequest(int, char *, int);
 void addToLinkedListItem(int, struct in_addr, in_port_t in_addr, time_t);
 void worker();
 struct work_queue_item * removeItem();
+
 #define HTTP_404 "HTTP/1.0 404 Not found\r\n\r\n"
 #define HTTP_200 "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\nContent-length: %d\r\n\r\n"
 
