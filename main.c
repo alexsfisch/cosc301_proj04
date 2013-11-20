@@ -30,6 +30,7 @@ void signal_handler(int sig) {
 }
 
 
+
 struct work_queue_item * removeItem() {
 	struct work_queue_item *temp = head; 
 
@@ -159,13 +160,18 @@ void worker(){
 	int fileExists = 1;
 	char cwd[1024];
 	getcwd(cwd,1024); //get current directory
+	struct stat sb;
+	char* fullFileName[1024];
+	FILE *file;
 	printf("%s\n","Created Thread");
+	
 	while(still_running) {
 		pthread_mutex_lock(&work_mutex);	
 		while (queue_count == 0) {
-			pthread_cond_wait(&work_cond, &work_mutex); //not sure about second parameter
+			pthread_cond_wait(&work_cond, &work_mutex); 
 		}
 
+		memset(fullFileName, 0, 1024); //reset char[]
 
 		printf("%s\n","worker thread activated");
 
@@ -179,33 +185,48 @@ void worker(){
 		//executing request
 		char buffer[1024];
 		getrequest(temp->sock, buffer, 1024);
-		memset(buffer, 0, 1024);
-		recv(temp->sock, buffer, 1024, 0);
-		if (buffer[1]=='/') { //if first character is a /, ignore it
-			//buffer++;
-		}
-		printf("%s","CWD:    ");
-		printf("%s\n",cwd);
+		printf("%s\n",buffer);
 
-		fileExists = stat(cwd, &buffer);
-		if (fileExists) {
+		//recv(temp->sock, buffer, 1024, 0);
+		if (buffer[1]=='/') { //if first character is a /, ignore it
+			//buffer++;   ///THIS IS NOT WORKING!!!!
+		}
+		strcat(fullFileName,cwd);
+		strcat(fullFileName,buffer);
+		printf("%s","File:   ");
+		printf("%s\n", fullFileName);
+		fileExists = stat(fullFileName, &sb);
+		
+		if (fileExists>=0) {
+			printf("%s\n","FILE FOUND!!!!!!");
 			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
+			file = fopen("weblog.txt","a+"); //append file
+			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200); //NEED TO ADD RESPONSE SIZE
+			fclose(file);
 		}
 		else {
 			printf("%s\n", "file does not exist");
 			senddata(temp->sock, HTTP_404, strlen(HTTP_404));
+			file = fopen("weblog.txt","a+"); //append file
+			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 404); //NEED TO ADD RESPONSE SIZE
+			fclose(file);
 
 		}
-		printf("got <%s> from remote\n", buffer);
+	
+		//printf("got <%s> from remote\n", buffer);
 		
-		printf("%s","sock:   ");
+
+		//write to file
+
+
+		/*printf("%s","sock:   ");
 		printf("%i\n",temp->sock);
 		printf("%s","clientIP:   ");
 		printf("%s\n", inet_ntoa(temp->clientIP));
 		printf("%s","clientPort:   ");
 		printf("%d\n", ntohs(temp->clientPort));
 		printf("%s","Time stamp:   ");
-		printf("%s\n",ctime(temp->timestamp));
+		printf("%s\n",ctime(temp->timestamp));*/
 		close(temp->sock);
 		printf("%s\n","Removed Item. Sock Closed.");
 		printf("%s\n","------------------------------------------------\n");
