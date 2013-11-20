@@ -181,12 +181,16 @@ void worker(){
 		//executing request
 		char buffer[1024];
 		getrequest(temp->sock, buffer, 1024);
+		printf("%s","buffer before: ");
 		printf("%s\n",buffer);
 
 		//recv(temp->sock, buffer, 1024, 0);
-		if (buffer[1]=='/') { //if first character is a /, ignore it
-			//buffer++;   ///THIS IS NOT WORKING!!!!
-		}
+		//if (buffer[0]=='/') { //if first character is a /, ignore it
+		//	stripfirst(buffer);   ///THIS IS NOT WORKING!!!!
+		//}
+		
+		printf("%s","buffer after: ");
+		printf("%s\n",buffer);
 		strcat(fullFileName,cwd);
 		strcat(fullFileName,buffer);
 		printf("%s","File:   ");
@@ -196,6 +200,7 @@ void worker(){
 		if (fileExists>=0) {
 			printf("%s\n","FILE FOUND!!!!!!");
 			//send data 200
+			//senddata(temp->sock, HTTP_200, strlen(HTTP_200));
 			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
 			file = fopen("weblog.txt","a+"); //append file
 			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200); //NEED TO ADD RESPONSE SIZE
@@ -237,7 +242,19 @@ void worker(){
 	
 }
 
-
+void stripfirst(char filename[]){
+	int i = 0;
+	if(filename[i+1]=='\0'){
+		filename[0]=='\0';
+	}
+	else{
+		while (filename[i+1]!='\0'){
+			filename[i]=filename[i+1];
+			i++;
+		}
+		filename[i]='\0';
+	}
+}
 
 int main(int argc, char **argv) {
 	pthread_mutex_init(&work_mutex, NULL); 
