@@ -104,7 +104,6 @@ void runserver(int numthreads, unsigned short serverport) {
 
     fprintf(stderr, "Server listening on port %d.  Going into request loop.\n", serverport);
     while (still_running) {
-		printf("%s\n","top of while loop");
         struct pollfd pfd = {main_socket, POLLIN};
         int prv = poll(&pfd, 1, 10000);
 
@@ -138,14 +137,11 @@ void runserver(int numthreads, unsigned short serverport) {
 
 
 			pthread_mutex_lock(&work_mutex); //lock
-			printf("%s","time:    ");
-			printf("%s\n",ctime(&now));
 			addToLinkedListItem(new_sock, client_address.sin_addr, client_address.sin_port, &now);
 			queue_count +=1;
 			printf("%s","Queue Count:   ");
 			printf("%i\n", queue_count);
 			pthread_cond_signal(&work_cond); //activate worker on it
-
 		   	pthread_mutex_unlock(&work_mutex); //unlock
 			
         }
@@ -199,6 +195,7 @@ void worker(){
 		
 		if (fileExists>=0) {
 			printf("%s\n","FILE FOUND!!!!!!");
+			//send data 200
 			send(temp->sock, buffer, strlen(buffer), 0); //if it exists, send data
 			file = fopen("weblog.txt","a+"); //append file
 			fprintf(file, "%s:%d %s GET %s %i\n", inet_ntoa(temp->clientIP), ntohs(temp->clientPort), ctime(temp->timestamp), fullFileName, 200); //NEED TO ADD RESPONSE SIZE
@@ -233,6 +230,8 @@ void worker(){
 		//respond to request on temp
 	
 		free(temp); //free temp
+		//free(fullFileName); //not sure if we need
+
 	}
 	//some code to kill threads
 	
